@@ -7,8 +7,21 @@ from prettytable import PrettyTable
 import time
 import ddddocr
 import base64
+from datetime import datetime
 
 ocr = ddddocr.DdddOcr()
+
+
+def waitfortime(st_time):
+    d2 = datetime.fromtimestamp(st_time)
+    while True:
+        d1 = datetime.now()
+        d = d2 - d1
+        if d.seconds >= 1:
+            print("\r用户倒计时%d秒" % d.seconds, end='')
+            time.sleep(1)
+        else:
+            break
 
 
 def get_code(session):
@@ -120,10 +133,13 @@ def doLecture(session, lid=None):
                 return
             else:
                 print('当前时间在该讲座预约期内，准备提交预约...')
+                if time.time() < st_time:
+                    waitfortime(st_time)
             break
         except Exception:
             print("课程信息获取失败，请重新输入讲座序号")
             continue
+
     print("开始提交预约..")
     submit_url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/hdyy/yySave.do"
     num = 1
@@ -142,7 +158,8 @@ def doLecture(session, lid=None):
                 print('当前预约人数已满，抢课over')
                 return
         num += 1
-        if num >= 50:
+        if num >= 100:
+            print('100次执行完毕..请查看最终结果')
             return
 
 
