@@ -16,11 +16,16 @@ def waitfortime(st_time):
     d2 = datetime.fromtimestamp(st_time)
     while True:
         d1 = datetime.now()
-        d = d2 - d1
+        if d2 >= d1:
+            d = d2 - d1
+        else:
+            print('用户倒计时结束')
+            break
         if d.seconds >= 1:
             print("\r用户倒计时%d秒" % d.seconds, end='')
             time.sleep(1)
         else:
+            print("\r用户倒计时%d秒" % d.seconds, end='')
             break
 
 
@@ -140,7 +145,7 @@ def doLecture(session, lid=None):
             print("课程信息获取失败，请重新输入讲座序号")
             continue
 
-    print("开始提交预约..")
+    print("\n开始提交预约..")
     submit_url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/hdyy/yySave.do"
     num = 1
     while True:
