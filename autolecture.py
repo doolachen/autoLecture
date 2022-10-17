@@ -21,11 +21,12 @@ def waitfortime(st_time):
         else:
             print('用户倒计时结束')
             break
-        if d.seconds >= 1:
-            print("\r用户倒计时%d秒" % d.seconds, end='')
+        time_s = d.days*86400 + d.seconds
+        if time_s >= 1:
+            print("\r用户倒计时%d秒" % time_s, end='')
             time.sleep(1)
         else:
-            print("\r用户倒计时%d秒" % d.seconds, end='')
+            print("\r用户倒计时%d秒" % time_s, end='')
             break
 
 
@@ -123,6 +124,7 @@ def doLecture(session, lid=None):
         if lec_index >= len(lec_list):
             print("序号输入错误，没有对应的讲座，请重新输入或运行脚本")
             continue
+
         wid = lec_list[lec_index]['WID']
         url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/modules/hdyy/hdxxxq_cx.do"
         data = {'WID': wid}
@@ -133,6 +135,7 @@ def doLecture(session, lid=None):
             print(result)
             st_time = time.mktime(time.strptime(lec_list[lec_index]['YYKSSJ'], "%Y-%m-%d %H:%M:%S"))
             ed_time = time.mktime(time.strptime(lec_list[lec_index]['YYJSSJ'], "%Y-%m-%d %H:%M:%S"))
+            print('讲座名：%s' % lec_list[lec_index]['JZMC'])
             if time.time() > ed_time:
                 print("该讲座已经过了预约时间了！")
                 return
