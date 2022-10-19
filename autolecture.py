@@ -5,29 +5,12 @@ import json
 import argparse
 from prettytable import PrettyTable
 import time
+import copy
 import ddddocr
 import base64
 from datetime import datetime
 
 ocr = ddddocr.DdddOcr()
-
-
-def waitfortime(st_time):
-    d2 = datetime.fromtimestamp(st_time)
-    while True:
-        d1 = datetime.now()
-        if d2 >= d1:
-            d = d2 - d1
-        else:
-            print('用户倒计时结束')
-            break
-        time_s = d.days*86400 + d.seconds
-        if time_s >= 1:
-            print("\r用户倒计时%d秒" % time_s, end='')
-            time.sleep(1)
-        else:
-            print("\r用户倒计时%d秒" % time_s, end='')
-            break
 
 
 def get_code(session):
@@ -97,8 +80,9 @@ def genLoginSession(username, password):
     return session
 
 
-def doLecture(session, lid=None):
+def doLecture(session, args):
     global wid
+    lid = args.lecture_id
     print('开始查询讲座...')
     url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/*default/index.do#/hdyy"
     session.get(url)
@@ -107,11 +91,18 @@ def doLecture(session, lid=None):
     res = session.post(lecinfo_url, data=form)
     res_json = json.loads(res.content)
     lec_list = res_json['datas']['hdxxxs']['rows']
+    lec_list_show = copy.deepcopy(lec_list)
     print("已查询到如下讲座信息：")
-    lec_table = PrettyTable(['序号', '讲座WID', '讲座名', '预约开始时间', '预约结束时间'])
+    lec_table = PrettyTable(['序号', '讲座名', '地点(方式)', '预约开始时间', '讲座时间'])
     index = 0
-    for lec in lec_list:
-        lec_table.add_row([index, lec['WID'], lec['JZMC'], lec['YYKSSJ'], lec['YYJSSJ']])
+    for lec in lec_list_show:
+        if len(lec['JZMC']) >= 28:
+            lec['JZMC'] = lec['JZMC'][:22] + '...' + lec['JZMC'][-6:]
+        if len(lec['JZDD']) >= 12:
+            lec['JZDD'] = lec['JZDD'][:8] + '..' + lec['JZDD'][-4:]
+        lec['YYKSSJ'] = lec['YYKSSJ'][5:-3]
+        lec['JZSJ'] = lec['JZSJ'][5:-3]
+        lec_table.add_row([index, lec['JZMC'], lec['JZDD'], lec['YYKSSJ'], lec['JZSJ']])
         index += 1
     print(lec_table)
     print("输入抢课的序号:")
@@ -129,26 +120,52 @@ def doLecture(session, lid=None):
         url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/modules/hdyy/hdxxxq_cx.do"
         data = {'WID': wid}
         res = session.post(url, data=data)
+        re_login_flag = False
+        # lec_list[lec_index]['YYKSSJ'] = "2022-10-18 21:42:00" # test time
         try:
             result = json.loads(res.content)['datas']['hdxxxq_cx']['rows'][0]
             print('讲座信息如下:')
             print(result)
             st_time = time.mktime(time.strptime(lec_list[lec_index]['YYKSSJ'], "%Y-%m-%d %H:%M:%S"))
             ed_time = time.mktime(time.strptime(lec_list[lec_index]['YYJSSJ'], "%Y-%m-%d %H:%M:%S"))
+            print('--------------------------------------------')
             print('讲座名：%s' % lec_list[lec_index]['JZMC'])
+            print('讲座地点：%s' % lec_list[lec_index]['JZDD'])
+            print('--------------------------------------------')
             if time.time() > ed_time:
                 print("该讲座已经过了预约时间了！")
                 return
             else:
                 print('当前时间在该讲座预约期内，准备提交预约...')
                 if time.time() < st_time:
-                    waitfortime(st_time)
+                    d2 = datetime.fromtimestamp(st_time)
+                    while True:
+                        d1 = datetime.now()
+                        if d2 >= d1:
+                            d = d2 - d1
+                        else:
+                            print('用户倒计时结束')
+                            break
+                        time_s = d.days * 86400 + d.seconds
+                        if time_s > 120 and not re_login_flag:
+                            re_login_flag = True
+                            print('倒计时较长，为保持session，1分钟的时候会重新进行登陆验证...')
+                        if re_login_flag and 58 <= time_s <= 59:
+                            print('\n重新进行登陆验证...')
+                            session = genLoginSession(args.username, args.password)
+                            re_login_flag = False
+                        if time_s >= 1:
+                            print("\r用户倒计时%d秒" % time_s, end='')
+                            time.sleep(1)
+                        else:
+                            print("\r用户倒计时%d秒" % time_s, end='')
+                            break
             break
         except Exception:
             print("课程信息获取失败，请重新输入讲座序号")
             continue
 
-    print("\n开始提交预约..")
+    print("\n开始提交预约...")
     submit_url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/hdyy/yySave.do"
     num = 1
     while True:
@@ -180,6 +197,6 @@ if __name__ == '__main__':
 
     loginSession = genLoginSession(args.username, args.password)
     if loginSession is not False:
-        doLecture(loginSession, args.lecture_id)
+        doLecture(loginSession, args)
     else:
         raise Exception('登陆出错，请检查账号密码是否输入正确或者查看日志！')
