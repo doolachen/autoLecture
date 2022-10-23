@@ -87,7 +87,7 @@ def doLecture(session, args):
     url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/*default/index.do#/hdyy"
     session.get(url)
     lecinfo_url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/modules/hdyy/hdxxxs.do"
-    form = {"pageSize": 12, "pageNumber": 1}
+    form = {"pageSize": 100, "pageNumber": 1}
     res = session.post(lecinfo_url, data=form)
     res_json = json.loads(res.content)
     lec_list = res_json['datas']['hdxxxs']['rows']
