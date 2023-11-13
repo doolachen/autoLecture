@@ -9,6 +9,7 @@ import copy
 import ddddocr
 import base64
 from datetime import datetime
+from login import *
 
 ocr = ddddocr.DdddOcr()
 
@@ -22,72 +23,75 @@ def get_code(session):
     return c, c_img
 
 
-def genLoginSession(username, password):
-    # get session
-    session = requests.session()
-    auth_server = 'https://newids.seu.edu.cn/authserver/login?service=https://newids.seu.edu.cn/authserver/login2.jsp'
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
-                      'Chrome/104.0.0.0 Safari/537.36 '
-    }
-    session.headers = headers
-    res = session.get(auth_server, headers=headers)
-    casLoginForm = {
-        "username": username
-    }
-    # other hidden input info
-    soup = BeautifulSoup(res.text, 'html.parser')
-    hidden_inputs = soup.find_all("input", type="hidden")
-    for item in hidden_inputs:
-        if item.has_attr('name'):
-            casLoginForm[item["name"]] = item["value"]
-        else:
-            casLoginForm[item["id"]] = item["value"]
+# def genLoginSession(username, password):
+#     # get session
+#     session = requests.session()
+#     auth_server = 'https://auth.seu.edu.cn/auth/casapi/login?service=http%3A%2F%2Fehall.seu.edu.cn%2Flogin%3Fservice%3Dhttp%3A%2F%2Fehall.seu.edu.cn%2Fnew%2Findex.html'
+#     headers = {
+#         'Content-Type': 'application/x-www-form-urlencoded',
+#         'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) '
+#                       'Chrome/104.0.0.0 Safari/537.36 '
+#     }
+#     session.headers = headers
+#     res = session.get(auth_server, headers=headers)
+#     casLoginForm = {
+#         "username": username
+#     }
+#     # other hidden input info
+#     soup = BeautifulSoup(res.text, 'html.parser')
+#     hidden_inputs = soup.find_all("input", type="hidden")
+#     for item in hidden_inputs:
+#         if item.has_attr('name'):
+#             casLoginForm[item["name"]] = item["value"]
+#         else:
+#             casLoginForm[item["id"]] = item["value"]
+#
+#     # password encrypt
+#     casLoginForm['password'] = genEncrpty(password, casLoginForm['pwdDefaultEncryptSalt'])
+#
+#     # post
+#     res = session.post(auth_server, data=casLoginForm)
+#     # check if success:
+#     if "密码有误" in res.text:
+#         print("您提供的用户名或者密码有误")
+#         return False
+#
+#     # get user info
+#     # for some unknown reasons the first request return 404.... so do some more times(10) until get 200
+#     getinfo_ok = False
+#     user_info = ''
+#     for _ in range(10):
+#         user_info = session.post('http://ehall.seu.edu.cn//restful/wecloud/user/userInfo')
+#         if user_info.status_code == 200:
+#             getinfo_ok = True
+#             break
+#     if getinfo_ok is False:
+#         print("Error occurs while connecting to http://ehall.seu.edu.cn//restful/wecloud/user/userInfo.")
+#         return False
+#
+#     try:
+#         user_info = json.loads(user_info.content)
+#         user_info['datas']['cname'] = user_info['datas']['cname'][0] + '****'
+#         print('登陆成功，你的信息如下：')
+#         print(user_info['datas'])
+#     except Exception:
+#         print("something went wrong...")
+#         return False
+#
+#     return session
 
-    # password encrypt
-    casLoginForm['password'] = genEncrpty(password, casLoginForm['pwdDefaultEncryptSalt'])
-
-    # post
-    res = session.post(auth_server, data=casLoginForm)
-    # check if success:
-    if "密码有误" in res.text:
-        print("您提供的用户名或者密码有误")
-        return False
-
-    # get user info
-    # for some unknown reasons the first request return 404.... so do some more times(10) until get 200
-    getinfo_ok = False
-    user_info = ''
-    for _ in range(10):
-        user_info = session.post('http://ehall.seu.edu.cn//restful/wecloud/user/userInfo')
-        if user_info.status_code == 200:
-            getinfo_ok = True
-            break
-    if getinfo_ok is False:
-        print("Error occurs while connecting to http://ehall.seu.edu.cn//restful/wecloud/user/userInfo.")
-        return False
-
-    try:
-        user_info = json.loads(user_info.content)
-        user_info['datas']['cname'] = user_info['datas']['cname'][0] + '****'
-        print('登陆成功，你的信息如下：')
-        print(user_info['datas'])
-    except Exception:
-        print("something went wrong...")
-        return False
-
-    return session
+def genLoginSession(username, password,url):
+    return seu_login(username,password,url)
 
 
 def doLecture(session, args):
     global wid
     lid = args.lecture_id
     print('开始查询讲座...')
-    url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/*default/index.do#/hdyy"
-    session.get(url)
+    # url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/*default/index.do#/hdyy"
+    # session.get(url)
     lecinfo_url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/modules/hdyy/hdxxxs.do"
-    form = {"pageSize": 100, "pageNumber": 1}
+    form = {"pageIndex":1,"pageSize": 100}
     res = session.post(lecinfo_url, data=form)
     res_json = json.loads(res.content)
     lec_list = res_json['datas']['hdxxxs']['rows']
@@ -117,15 +121,10 @@ def doLecture(session, args):
             continue
 
         wid = lec_list[lec_index]['WID']
-        url = "http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/modules/hdyy/hdxxxq_cx.do"
-        data = {'WID': wid}
-        res = session.post(url, data=data)
         re_login_flag = False
-        # lec_list[lec_index]['YYKSSJ'] = "2022-10-18 21:42:00" # test time
+
         try:
-            result = json.loads(res.content)['datas']['hdxxxq_cx']['rows'][0]
-            print('讲座信息如下:')
-            print(result)
+            print('讲座信息如下:',lec_list[lec_index])
             st_time = time.mktime(time.strptime(lec_list[lec_index]['YYKSSJ'], "%Y-%m-%d %H:%M:%S"))
             ed_time = time.mktime(time.strptime(lec_list[lec_index]['YYJSSJ'], "%Y-%m-%d %H:%M:%S"))
             print('--------------------------------------------')
@@ -152,7 +151,11 @@ def doLecture(session, args):
                             print('倒计时较长，为保持session，1分钟的时候会重新进行登陆验证...')
                         if re_login_flag and 58 <= time_s <= 59:
                             print('\n重新进行登陆验证...')
-                            session = genLoginSession(args.username, args.password)
+                            session, redirect_url = genLoginSession(args.username, args.password,'http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/*default/index.do')
+                            if session is not None and redirect_url is not None:
+                                session.get(redirect_url)
+                            else:
+                                raise Exception('登陆出错，请检查账号密码是否输入正确或者查看日志！')
                             re_login_flag = False
                         if time_s >= 1:
                             print("\r用户倒计时%d秒" % time_s, end='')
@@ -172,6 +175,10 @@ def doLecture(session, args):
         vcode, _ = get_code(session)
         data_json = {'HD_WID': wid, 'vcode': vcode}
         form = {"paramJson": json.dumps(data_json)}
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        }
+        session.headers.update(headers) # 更新headers
         res = session.post(submit_url, data=form)
         res = json.loads(res.content)
         print("尝试第%d次,%s" % (num, res))
@@ -182,6 +189,8 @@ def doLecture(session, args):
             if '人数已满' in res['msg']:
                 print('当前预约人数已满，抢课over')
                 return
+            else:
+                print(res['code'], res['msg'], res['success'])
         num += 1
         if num >= 100:
             print('100次执行完毕..请查看最终结果')
@@ -195,8 +204,9 @@ if __name__ == '__main__':
     parser.add_argument('--lecture_id', '-id', help='自动选课的序号', required=False)
     args = parser.parse_args()
 
-    loginSession = genLoginSession(args.username, args.password)
-    if loginSession is not False:
+    loginSession, redirect_url = genLoginSession(args.username, args.password,'http://ehall.seu.edu.cn/gsapp/sys/jzxxtjapp/*default/index.do')
+    if loginSession is not None and redirect_url is not None:
+        loginSession.get(redirect_url)
         doLecture(loginSession, args)
     else:
         raise Exception('登陆出错，请检查账号密码是否输入正确或者查看日志！')
